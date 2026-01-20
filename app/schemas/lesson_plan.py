@@ -53,6 +53,11 @@ class LessonPlanErrorEvent(SSEEventBase):
 
 class LessonPlanMetadata(BaseModel):
     key_concepts: List[str]
+    difficulty_level: Optional[str] = None
+    estimated_prep_time: Optional[str] = None
+
+    class Config:
+        extra = "ignore"
 
 
 class LessonPlanEndEvent(SSEEventBase):
