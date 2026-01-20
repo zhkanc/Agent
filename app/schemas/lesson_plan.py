@@ -60,11 +60,6 @@ class LessonPlanMetadata(BaseModel):
         extra = "ignore"
 
 
-class LessonPlanEndEvent(SSEEventBase):
-    event: Literal["end"] = "end"
-    metadata: LessonPlanMetadata
-
-
 class LessonPlanLog(BaseModel):
     request_id: str
     model_name: str
@@ -72,3 +67,9 @@ class LessonPlanLog(BaseModel):
     output_tokens: int
     total_tokens: int
     latency_ms: float
+
+
+class LessonPlanEndEvent(SSEEventBase):
+    event: Literal["end"] = "end"
+    metadata: LessonPlanMetadata
+    usage: Optional[LessonPlanLog] = None

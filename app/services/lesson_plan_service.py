@@ -16,6 +16,7 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
+
 class LessonPlanService:
 
     @staticmethod
@@ -33,47 +34,48 @@ class LessonPlanService:
         )
 
         start_time = time.time()
-        
+
         separator = "---METADATA---"
         buffer = ""
         metadata_mode = False
         metadata_buffer = ""
-        
+        usage_log: Optional[LessonPlanLog] = None
+
         async for chunk in LLMService.stream_generate(prompt):
             if chunk["type"] == "content":
                 text = chunk["text"]
-                
+
                 if metadata_mode:
                     metadata_buffer += text
                     continue
-                
+
                 buffer += text
-                
+
                 # Check if separator is in buffer
                 if separator in buffer:
                     parts = buffer.split(separator, 1)
                     content_part = parts[0]
                     metadata_part = parts[1]
-                    
+
                     if content_part:
                         yield LessonPlanContentEvent(text=content_part)
-                    
+
                     metadata_mode = True
                     metadata_buffer = metadata_part
                     buffer = ""
                 else:
                     # Defensive streaming: only yield part of buffer that is safe
                     # (i.e. not potentially part of the separator)
-                    # Separator length is 14. 
+                    # Separator length is 14.
                     # If buffer ends with partial match of separator, don't yield that part yet.
                     # Simplest heuristic: Keep last N chars where N = len(separator)
-                    
+
                     if len(buffer) > len(separator):
                         safe_len = len(buffer) - len(separator)
                         to_yield = buffer[:safe_len]
                         buffer = buffer[safe_len:]
                         yield LessonPlanContentEvent(text=to_yield)
-            
+
             elif chunk["type"] == "usage":
                 latency = (time.time() - start_time) * 1000
                 log_entry = LessonPlanLog(
@@ -85,7 +87,8 @@ class LessonPlanService:
                     latency_ms=latency
                 )
                 logger.info(f"Request Log: {log_entry.json()}")
-                
+                usage_log = log_entry
+
             elif chunk["type"] == "error":
                 yield LessonPlanErrorEvent(message=chunk["message"])
                 return
@@ -93,7 +96,7 @@ class LessonPlanService:
         # End of stream
         # If we still have content in buffer (and no metadata found), yield it
         if buffer and not metadata_mode:
-             yield LessonPlanContentEvent(text=buffer)
+            yield LessonPlanContentEvent(text=buffer)
 
         # Parse Metadata
         metadata = LessonPlanMetadata(key_concepts=[])
@@ -109,12 +112,13 @@ class LessonPlanService:
                         json_str = json_str[first_newline+1:]
                 if json_str.endswith("```"):
                     json_str = json_str[:-3]
-                
+
                 json_str = json_str.strip()
                 data = json.loads(json_str)
                 metadata = LessonPlanMetadata(**data)
             except Exception as e:
-                logger.error(f"Failed to parse metadata: {e}. Raw buffer: {metadata_buffer}")
+                logger.error(
+                    f"Failed to parse metadata: {e}. Raw buffer: {metadata_buffer}")
                 # We return empty metadata on failure rather than crashing the stream end
 
-        yield LessonPlanEndEvent(metadata=metadata)
+        yield LessonPlanEndEvent(metadata=metadata, usage=usage_log)
