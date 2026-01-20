@@ -1,14 +1,8 @@
 from pydantic import BaseModel, Field
 from typing import Literal, List, Optional
-from uuid import UUID, uuid4
 
 
 class LessonPlanRequest(BaseModel):
-    request_id: UUID = Field(
-        default_factory=uuid4,
-        description="唯一标识"
-    )
-
     subject: str = Field(
         ...,
         description="学科名称，如：IGCSE Economics"
