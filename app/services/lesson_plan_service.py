@@ -1,6 +1,7 @@
 import time
 import logging
 import json
+from uuid import uuid4
 from typing import AsyncGenerator
 from app.schemas.lesson_plan import (
     LessonPlanRequest,
@@ -23,6 +24,8 @@ class LessonPlanService:
     async def generate(
         req: LessonPlanRequest
     ) -> AsyncGenerator[object, None]:
+
+        request_id = str(uuid4())
 
         prompt = load_prompt(
             "lesson_plan/outline.yaml",
@@ -79,7 +82,7 @@ class LessonPlanService:
             elif chunk["type"] == "usage":
                 latency = (time.time() - start_time) * 1000
                 log_entry = LessonPlanLog(
-                    request_id=str(req.request_id),
+                    request_id=request_id,
                     model_name=chunk.get("model", settings.model_name),
                     input_tokens=chunk["input_tokens"],
                     output_tokens=chunk["output_tokens"],
