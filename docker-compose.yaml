@@ -1,0 +1,21 @@
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lesson-plan-agent:latest
+    container_name: lesson-plan-agent
+    ports:
+      - "8000:8000"
+    # Load environment variables from .env file on the host
+    # These variables are passed to the container's environment
+    env_file:
+      - .env
+    restart: unless-stopped
+    # Health check to ensure the service is up
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
