@@ -29,6 +29,11 @@ class LessonPlanRequest(BaseModel):
         description="教学风格，如：PBL项目制"
     )
 
+    context_file: Optional[str] = Field(
+        None,
+        description="上下文背景文件名（需位于 app/data/context 目录下），如：standard.md"
+    )
+
 
 class SSEEventBase(BaseModel):
     event: Literal["content", "error", "end"]

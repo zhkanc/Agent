@@ -1,8 +1,9 @@
 import time
 import logging
 import json
+from pathlib import Path
 from uuid import uuid4
-from typing import AsyncGenerator
+from typing import AsyncGenerator, Optional
 from app.schemas.lesson_plan import (
     LessonPlanRequest,
     LessonPlanContentEvent,
@@ -27,6 +28,23 @@ class LessonPlanService:
 
         request_id = str(uuid4())
 
+        # Load context file if provided
+        context_content = ""
+        if req.context_file:
+            # Security check: prevent directory traversal
+            safe_filename = Path(req.context_file).name
+            context_path = Path("app/data/context") / safe_filename
+
+            if context_path.exists() and context_path.is_file():
+                try:
+                    content = context_path.read_text(encoding="utf-8")
+                    context_content = f"\n\n## Context (Reference Standard)\n{content}"
+                except Exception as e:
+                    logger.error(
+                        f"Failed to read context file {context_path}: {e}")
+            else:
+                logger.warning(f"Context file not found: {context_path}")
+
         prompt = load_prompt(
             "lesson_plan/outline.yaml",
             subject=req.subject,
@@ -34,6 +52,7 @@ class LessonPlanService:
             topic=req.topic,
             duration=req.duration,
             style=req.teaching_style,
+            context=context_content,
         )
 
         start_time = time.time()
