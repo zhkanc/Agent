@@ -14,6 +14,7 @@ class LLMService:
 
     @classmethod
     def get_semaphore(cls) -> asyncio.Semaphore:
+        """获取异步信号量，用于控制并发请求"""
         if cls._semaphore is None:
             cls._semaphore = asyncio.Semaphore(settings.llm_concurrency_limit)
         return cls._semaphore
@@ -38,14 +39,7 @@ class LLMService:
         prompt: str,
         model: str = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
-        """
-        Generates streaming response from LLM.
-        Yields dicts with keys:
-        - type: "content" | "usage" | "error"
-        - text: str (if type="content")
-        - input_tokens, output_tokens, total_tokens, model: (if type="usage")
-        - message: str (if type="error")
-        """
+
         client = cls.get_client()
         model = model or settings.model_name
 
@@ -62,7 +56,7 @@ class LLMService:
                 )
 
                 async for chunk in stream:
-                    # Handle usage information (typically in the last chunk)
+                    # 捕获Token使用信息
                     if chunk.usage:
                         yield {
                             "type": "usage",
@@ -72,7 +66,7 @@ class LLMService:
                             "model": chunk.model,
                         }
 
-                    # Handle content
+                    # 捕获内容输出
                     if chunk.choices and len(chunk.choices) > 0:
                         delta = chunk.choices[0].delta
                         if delta.content:
