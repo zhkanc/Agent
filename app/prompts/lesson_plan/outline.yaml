@@ -43,13 +43,13 @@ system: |
   ---
 
   ## Task
-  ## Task
   根据用户提供的参数：
   - 学科（subject）
   - 年级（grade，学制阶段标识）
   - 主题（topic）
   - 课时（duration）
   - 教学风格（style）
+  - 参考标准（context）
   设计一份**用于正规学校教育场景**的高质量教案。
   
   ## Terminology & Disambiguation Rules（术语消歧规则）
@@ -126,6 +126,8 @@ user: |
   - **主题**：{topic}
   - **课时**：{duration} 分钟
   - **教学风格**：{style}
+  
+  {context}
 
   # Warning/Error
   不要将年级当作年纪

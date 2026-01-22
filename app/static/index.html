@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 教案生成器</title>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: #333;
+        }
+        
+        /* 左侧边栏 */
+        .sidebar {
+            width: 320px;
+            padding: 24px;
+            background-color: #f7f8fa;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        
+        .sidebar h2 {
+            margin: 0 0 10px 0;
+            font-size: 20px;
+            color: #1f2329;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #646a73;
+        }
+
+        .form-group input, .form-group select {
+            padding: 10px 12px;
+            border: 1px solid #dee0e3;
+            border-radius: 6px;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            border-color: #3370ff;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 12px;
+            background-color: #3370ff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #285acc;
+        }
+        
+        button:disabled {
+            background-color: #bbbfc4;
+            cursor: not-allowed;
+        }
+
+        /* 右侧主区域 */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 教案展示区 */
+        #output-container {
+            flex: 1;
+            padding: 40px;
+            overflow-y: auto;
+            background-color: #fff;
+        }
+
+        #output {
+            max-width: 800px;
+            margin: 0 auto;
+            line-height: 1.8;
+            font-size: 16px;
+            white-space: pre-wrap; /* 保留换行 */
+        }
+
+        #output h1, #output h2, #output h3 {
+            margin-top: 1.5em;
+            margin-bottom: 0.5em;
+            color: #1f2329;
+        }
+        
+        #output ul, #output ol {
+            padding-left: 20px;
+        }
+
+        /* 底部日志区 */
+        #log-container {
+            height: 250px;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            font-family: "Menlo", "Monaco", "Courier New", monospace;
+            font-size: 13px;
+            overflow-y: auto;
+            border-top: 1px solid #333;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .log-title {
+            color: #9cdcfe;
+            margin-bottom: 10px;
+            font-weight: bold;
+            border-bottom: 1px solid #333;
+            padding-bottom: 5px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .metric-item {
+            background: #2d2d2d;
+            padding: 8px;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .metric-label {
+            color: #808080;
+            font-size: 11px;
+            margin-bottom: 4px;
+        }
+
+        .metric-value {
+            color: #ce9178;
+            font-weight: 500;
+            word-break: break-all;
+        }
+
+        .log-messages {
+            flex: 1;
+            overflow-y: auto;
+            border-top: 1px solid #333;
+            padding-top: 10px;
+            font-size: 12px;
+        }
+        
+        .log-entry {
+            margin-bottom: 4px;
+            word-break: break-all;
+            color: #a0a0a0;
+        }
+        
+        .cursor {
+            display: inline-block;
+            width: 8px;
+            height: 16px;
+            background-color: #3370ff;
+            animation: blink 1s step-end infinite;
+            vertical-align: text-bottom;
+            margin-left: 2px;
+        }
+        
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- 左侧输入区 -->
+    <div class="sidebar">
+        <h2>教案生成配置</h2>
+        
+        <div class="form-group">
+            <label for="subject">学科 (Subject)</label>
+            <input type="text" id="subject" value="IGCSE Economics" placeholder="例如：Math, History">
+        </div>
+
+        <div class="form-group">
+            <label for="grade_level">年级 (Grade)</label>
+            <input type="text" id="grade_level" value="Grade 10" placeholder="例如：Grade 10">
+        </div>
+
+        <div class="form-group">
+            <label for="topic">主题 (Topic)</label>
+            <input type="text" id="topic" value="Supply and Demand" placeholder="课程主题">
+        </div>
+
+        <div class="form-group">
+            <label for="duration">时长 (Minutes)</label>
+            <input type="number" id="duration" value="45" min="1">
+        </div>
+
+        <div class="form-group">
+            <label for="teaching_style">教学风格</label>
+            <input type="text" id="teaching_style" value="Inquiry-based Learning" placeholder="例如：Inquiry-based, PBL, Humorous">
+        </div>
+
+        <div class="form-group">
+            <label for="context_file_input">上下文文件 (可选)</label>
+            <input type="file" id="context_file_input" style="width: 100%; margin-bottom: 8px;">
+            <button onclick="clearFile()" style="padding: 6px 12px; background: #3e3e3e; color: #d4d4d4; border: 1px solid #555; border-radius: 4px; cursor: pointer; width: 100%; font-size: 13px;">清除已选文件</button>
+            <div id="upload_status" style="font-size: 12px; color: #646a73; margin-top: 8px;">支持 .md, .txt 等格式</div>
+        </div>
+
+        <button id="generate-btn" onclick="startGeneration()">开始生成教案</button>
+    </div>
+
+    <!-- 右侧展示区 -->
+    <div class="main-content">
+        <div id="output-container">
+            <div id="output"></div>
+        </div>
+        
+        <div id="log-container">
+            <div class="log-title">请求统计</div>
+            <div class="metrics-grid" id="metrics-grid">
+                <!-- Metrics will be inserted here -->
+                <div class="metric-item">
+                    <span class="metric-label">Request ID</span>
+                    <span class="metric-value" id="metric-request-id">-</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Model Name</span>
+                    <span class="metric-value" id="metric-model-name">-</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Latency</span>
+                    <span class="metric-value" id="metric-latency">-</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Tokens (In/Out/Total)</span>
+                    <span class="metric-value" id="metric-tokens">-</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Key Concepts</span>
+                    <span class="metric-value" id="metric-key-concepts">-</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Difficulty</span>
+                    <span class="metric-value" id="metric-difficulty">-</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Prep Time</span>
+                    <span class="metric-value" id="metric-prep-time">-</span>
+                </div>
+                <div class="metric-item">
+                    <span class="metric-label">Context File</span>
+                    <span class="metric-value" id="metric-context-file">-</span>
+                </div>
+            </div>
+            <div class="log-messages" id="logs"></div>
+        </div>
+    </div>
+
+    <script>
+        const outputDiv = document.getElementById('output');
+        const logsDiv = document.getElementById('logs');
+        const generateBtn = document.getElementById('generate-btn');
+        let fullMarkdown = '';
+        let cursor = null;
+
+        function clearFile() {
+            document.getElementById('context_file_input').value = '';
+            log('文件选择已清除');
+        }
+
+        function updateOutput(markdownText) {
+            // Render markdown
+            const html = marked.parse(markdownText);
+            outputDiv.innerHTML = html;
+            
+            // Append cursor
+            if (!cursor) {
+                cursor = document.createElement('span');
+                cursor.className = 'cursor';
+            }
+            outputDiv.appendChild(cursor);
+            
+            // Auto scroll
+            const container = document.getElementById('output-container');
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function removeCursor() {
+            if (cursor && cursor.parentNode) {
+                cursor.parentNode.removeChild(cursor);
+            }
+            cursor = null;
+        }
+
+        function log(message) {
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            entry.innerText = `[${new Date().toLocaleTimeString()}] ${message}`;
+            logsDiv.appendChild(entry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+        
+        function updateMetrics(usage) {
+            document.getElementById('metric-request-id').innerText = usage.request_id || '-';
+            document.getElementById('metric-model-name').innerText = usage.model_name || '-';
+            document.getElementById('metric-latency').innerText = usage.latency_ms ? `${usage.latency_ms.toFixed(0)} ms` : '-';
+            document.getElementById('metric-tokens').innerText = 
+                `${usage.input_tokens} / ${usage.output_tokens} / ${usage.total_tokens}`;
+        }
+        
+        function updateMetadata(metadata) {
+            document.getElementById('metric-key-concepts').innerText = metadata.key_concepts ? metadata.key_concepts.join(', ') : '-';
+            document.getElementById('metric-difficulty').innerText = metadata.difficulty_level || '-';
+            document.getElementById('metric-prep-time').innerText = metadata.estimated_prep_time || '-';
+            document.getElementById('metric-context-file').innerText = metadata.context_file_used || 'None';
+        }
+
+        async function startGeneration() {
+            // 1. 获取输入
+            const subject = document.getElementById('subject').value;
+            const grade_level = document.getElementById('grade_level').value;
+            const topic = document.getElementById('topic').value;
+            const duration = parseInt(document.getElementById('duration').value);
+            const teaching_style = document.getElementById('teaching_style').value;
+            const fileInput = document.getElementById('context_file_input');
+
+            if (!subject || !grade_level || !topic) {
+                alert('请填写完整信息');
+                return;
+            }
+
+            // 2. 重置 UI
+            fullMarkdown = '';
+            outputDiv.innerHTML = '';
+            logsDiv.innerHTML = '';
+            // Reset metrics and metadata
+            ['request-id', 'model-name', 'latency', 'tokens', 'key-concepts', 'difficulty', 'prep-time', 'context-file'].forEach(id => {
+                document.getElementById(`metric-${id}`).innerText = '-';
+            });
+            
+            generateBtn.disabled = true;
+            generateBtn.innerText = '生成中...';
+            log('开始请求...');
+
+            let context_file = null;
+
+            try {
+                // 2.1 上传文件 (如果有)
+                if (fileInput.files.length > 0) {
+                    log('正在上传文件...');
+                    const formData = new FormData();
+                    formData.append('file', fileInput.files[0]);
+                    
+                    const uploadResp = await fetch('/upload/context', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!uploadResp.ok) {
+                        const errorText = await uploadResp.text();
+                        throw new Error(`Upload failed: ${uploadResp.status} - ${errorText}`);
+                    }
+                    
+                    const uploadResult = await uploadResp.json();
+                    context_file = uploadResult.filename;
+                    log(`文件上传成功: ${uploadResult.original_name} -> ${context_file}`);
+                }
+
+                // 3. 发起请求
+                const payload = {
+                    subject,
+                    grade_level,
+                    topic,
+                    duration,
+                    teaching_style,
+                    context_file
+                };
+                
+                const response = await fetch('/lesson-plan/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // 4. 读取流
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    buffer += chunk;
+
+                    // 处理 SSE 消息 (以 \n\n 分隔)
+                    const lines = buffer.split('\n\n');
+                    // 保留最后一个可能不完整的块
+                    buffer = lines.pop();
+
+                    for (const line of lines) {
+                        if (line.startsWith('data: ')) {
+                            const jsonStr = line.slice(6); // 去掉 "data: "
+                            try {
+                                const data = JSON.parse(jsonStr);
+                                handleEvent(data);
+                            } catch (e) {
+                                console.error('JSON parse error:', e, jsonStr);
+                                log(`Error parsing JSON: ${e.message}`);
+                            }
+                        }
+                    }
+                }
+                
+                removeCursor();
+                log('连接关闭');
+
+            } catch (e) {
+                log(`Error: ${e.message}`);
+                alert('生成失败，请检查日志');
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.innerText = '开始生成教案';
+                removeCursor();
+            }
+        }
+
+        function handleEvent(data) {
+            if (data.event === 'content') {
+                if (data.text) {
+                    fullMarkdown += data.text;
+                    updateOutput(fullMarkdown);
+                }
+            } else if (data.event === 'end') {
+                log('生成完成');
+                if (data.usage) {
+                    updateMetrics(data.usage);
+                }
+                if (data.metadata) {
+                    updateMetadata(data.metadata);
+                    // Optional: show metadata in logs
+                    log(`Metadata keys: ${data.metadata.key_concepts.join(', ')}`);
+                }
+            } else if (data.event === 'error') {
+                log(`Error Event: ${data.message}`);
+                fullMarkdown += `\n\n**Error:** ${data.message}`;
+                updateOutput(fullMarkdown);
+            }
+        }
+    </script>
+</body>
+</html>
