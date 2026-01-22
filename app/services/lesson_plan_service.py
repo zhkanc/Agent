@@ -28,14 +28,12 @@ class LessonPlanService:
 
         request_id = str(uuid4())
 
-        # Load context file if provided
+        # 如果有上下文文件，加载其内容
         context_content = ""
         if req.context_file:
-            # Security check: prevent directory traversal
             safe_filename = Path(req.context_file).name
-            
-            # Use absolute path resolution
-            BASE_DIR = Path(__file__).resolve().parent.parent.parent # E:\TraePrograms\Agent
+
+            BASE_DIR = Path(__file__).resolve().parent.parent.parent
             context_path = BASE_DIR / "app" / "data" / "context" / safe_filename
 
             if context_path.exists() and context_path.is_file():
@@ -48,6 +46,7 @@ class LessonPlanService:
             else:
                 logger.warning(f"Context file not found: {context_path}")
 
+        # 加载提示模板
         prompt = load_prompt(
             "lesson_plan/outline.yaml",
             subject=req.subject,
@@ -66,6 +65,7 @@ class LessonPlanService:
         metadata_buffer = ""
         usage_log: Optional[LessonPlanLog] = None
 
+        # 内容和元数据分开输出
         async for chunk in LLMService.stream_generate(prompt):
             if chunk["type"] == "content":
                 text = chunk["text"]
@@ -76,7 +76,6 @@ class LessonPlanService:
 
                 buffer += text
 
-                # Check if separator is in buffer
                 if separator in buffer:
                     parts = buffer.split(separator, 1)
                     content_part = parts[0]
@@ -89,12 +88,6 @@ class LessonPlanService:
                     metadata_buffer = metadata_part
                     buffer = ""
                 else:
-                    # Defensive streaming: only yield part of buffer that is safe
-                    # (i.e. not potentially part of the separator)
-                    # Separator length is 14.
-                    # If buffer ends with partial match of separator, don't yield that part yet.
-                    # Simplest heuristic: Keep last N chars where N = len(separator)
-
                     if len(buffer) > len(separator):
                         safe_len = len(buffer) - len(separator)
                         to_yield = buffer[:safe_len]
@@ -118,20 +111,15 @@ class LessonPlanService:
                 yield LessonPlanErrorEvent(message=chunk["message"])
                 return
 
-        # End of stream
-        # If we still have content in buffer (and no metadata found), yield it
         if buffer and not metadata_mode:
             yield LessonPlanContentEvent(text=buffer)
 
-        # Parse Metadata
+        # 解析元数据
         metadata = LessonPlanMetadata(key_concepts=[])
         if metadata_buffer:
             try:
-                # Clean up json string
                 json_str = metadata_buffer.strip()
-                # Remove markdown code blocks if present
                 if json_str.startswith("```"):
-                    # Find first newline
                     first_newline = json_str.find("\n")
                     if first_newline != -1:
                         json_str = json_str[first_newline+1:]
@@ -144,10 +132,8 @@ class LessonPlanService:
             except Exception as e:
                 logger.error(
                     f"Failed to parse metadata: {e}. Raw buffer: {metadata_buffer}")
-                # We return empty metadata on failure rather than crashing the stream end
-        
-        # Inject context file usage info into metadata
+
         if req.context_file and context_content:
-             metadata.context_file_used = req.context_file
+            metadata.context_file_used = req.context_file
 
         yield LessonPlanEndEvent(metadata=metadata, usage=usage_log)
