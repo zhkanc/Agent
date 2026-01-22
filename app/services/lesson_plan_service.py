@@ -33,7 +33,10 @@ class LessonPlanService:
         if req.context_file:
             # Security check: prevent directory traversal
             safe_filename = Path(req.context_file).name
-            context_path = Path("app/data/context") / safe_filename
+            
+            # Use absolute path resolution
+            BASE_DIR = Path(__file__).resolve().parent.parent.parent # E:\TraePrograms\Agent
+            context_path = BASE_DIR / "app" / "data" / "context" / safe_filename
 
             if context_path.exists() and context_path.is_file():
                 try:
@@ -142,5 +145,9 @@ class LessonPlanService:
                 logger.error(
                     f"Failed to parse metadata: {e}. Raw buffer: {metadata_buffer}")
                 # We return empty metadata on failure rather than crashing the stream end
+        
+        # Inject context file usage info into metadata
+        if req.context_file and context_content:
+             metadata.context_file_used = req.context_file
 
         yield LessonPlanEndEvent(metadata=metadata, usage=usage_log)
