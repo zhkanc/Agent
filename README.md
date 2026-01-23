@@ -60,7 +60,7 @@ Lesson Plan Agent 是一个基于 FastAPI 和 LLM (大语言模型) 的智能教
 
 1.  **克隆项目**
     ```bash
-    git clone <repository_url>
+    git clone https://github.com/zhkanc/Agent.git
     cd Agent
     ```
 
