@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+pydantic
+pydantic-settings
+dashscope
+openai
+python-dotenv
+python-multipart
+PyYAML

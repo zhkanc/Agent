@@ -1,0 +1,20 @@
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lesson-plan-agent:latest
+    container_name: lesson-plan-agent
+    ports:
+      - "8000:8000"
+    # 加载 .env 文件中的环境变量
+    env_file:
+      - .env
+    restart: unless-stopped
+    # 健康检查
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
